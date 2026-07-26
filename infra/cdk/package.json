@@ -1,0 +1,19 @@
+{
+  "name": "pacs-security-infra",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "synth": "cdk synth",
+    "bootstrap": "cdk bootstrap",
+    "deploy": "cdk deploy"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "aws-cdk": "^2.154.1",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.154.1",
+    "constructs": "^10.3.0"
+  }
+}

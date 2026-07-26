@@ -1,39 +1,45 @@
-# PACS Security
+# pacs-security
 
-A PACS security application workspace with separate backend and frontend packages.
+React/Vite frontend with the same portfolio-style layout and an AWS serverless backend foundation.
 
-## Overview
+## MVP scope
 
-This project contains a security-focused application with a Node/Express backend and a React/Vite frontend.
+- Users and roles management
+- Access event ingest and audit retrieval
+- Device registration and status tracking
 
-## Structure
+## Repository layout
 
+```text
+frontend/      React + Vite client
+backend/       API implementation
+infra/cdk/     AWS CDK (API Gateway + Lambda + DynamoDB + Cognito)
 ```
-.pacs-security/
-  backend/      # Express backend API
-  frontend/     # React frontend application
-  package.json  # npm workspace config
-  README.md     # project documentation
-  .gitignore    # repo ignores
+
+## Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-## Getting Started
+## CDK infrastructure
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Start both packages in development:
-   ```bash
-   npm run dev
-   ```
+```bash
+cd infra/cdk
+npm install
+npm run bootstrap
+npm run deploy
+```
 
-## Scripts
+## Planned API routes
 
-- `npm run dev` — start backend and frontend together
-- `npm run install-all` — install dependencies for both workspaces
-
-## Notes
-
-- Keep this repository focused on the PACS security app only.
-- Use the `backend` and `frontend` folders as the repository root packages.
+- `GET /api/users`
+- `POST /api/users`
+- `GET /api/roles`
+- `POST /api/roles`
+- `GET /api/events`
+- `POST /api/events`
+- `GET /api/devices`
+- `POST /api/devices`
