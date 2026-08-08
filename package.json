@@ -1,16 +1,28 @@
 {
-  "name": "pacs-security",
-  "version": "0.1.0",
+  "name": "security-operations-platform",
+  "version": "1.0.0",
   "private": true,
   "workspaces": [
+    "packages/contracts",
     "backend",
-    "frontend"
+    "frontend",
+    "infra/cdk"
   ],
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11"
+  },
+  "packageManager": "npm@11.16.0",
   "scripts": {
-    "dev": "concurrently \"npm --workspace backend run dev\" \"npm --workspace frontend run dev\"",
-    "install-all": "npm install"
+    "dev": "npm run dev --workspace @sop/frontend",
+    "build": "npm run build --workspace @sop/contracts && npm run build --workspace @sop/backend && npm run build --workspace @sop/frontend && npm run build --workspace @sop/infra",
+    "typecheck": "npm run typecheck --workspace @sop/contracts && npm run typecheck --workspace @sop/backend && npm run typecheck --workspace @sop/frontend && npm run typecheck --workspace @sop/infra",
+    "test": "npm run test --workspace @sop/backend && npm run test --workspace @sop/frontend && npm run test --workspace @sop/infra",
+    "synth": "npm run build && npm run synth --workspace @sop/infra",
+    "deploy": "npm run build && npm run deploy --workspace @sop/infra",
+    "user:create": "node scripts/create-demo-user.mjs"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@aws-sdk/client-cognito-identity-provider": "^3.883.0"
   }
 }

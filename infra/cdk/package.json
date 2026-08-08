@@ -1,19 +1,26 @@
 {
-  "name": "pacs-security-infra",
+  "name": "@sop/infra",
+  "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
     "synth": "cdk synth",
     "bootstrap": "cdk bootstrap",
-    "deploy": "cdk deploy"
+    "deploy": "cdk deploy SecurityOperationsPlatformStack"
   },
   "devDependencies": {
-    "@types/node": "^20.14.12",
+    "@types/node": "^24.3.0",
     "aws-cdk": "^2.154.1",
-    "typescript": "^5.5.4"
-  },
-  "dependencies": {
     "aws-cdk-lib": "^2.154.1",
-    "constructs": "^10.3.0"
+    "constructs": "^10.3.0",
+    "esbuild": "^0.25.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }

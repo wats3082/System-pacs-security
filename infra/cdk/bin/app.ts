@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { App } from 'aws-cdk-lib';
-import { PacsSecurityStack } from '../lib/pacs-security-stack';
+import { SecurityOperationsPlatformStack } from '../lib/security-operations-platform-stack';
 
 const app = new App();
 
-new PacsSecurityStack(app, 'PacsSecurityStack', {
+new SecurityOperationsPlatformStack(app, 'SecurityOperationsPlatformStack', {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
+    region: process.env.CDK_DEFAULT_REGION
+      ?? process.env.AWS_REGION
+      ?? app.node.tryGetContext('region')
+      ?? 'us-east-1',
   },
 });

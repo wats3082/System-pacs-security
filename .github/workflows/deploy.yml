@@ -1,0 +1,86 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          if [ -n "$ROLE_ARN" ] && [ -n "$AWS_REGION" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Deployment skipped: set repository variables AWS_DEPLOY_ROLE_ARN and AWS_REGION." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    needs: preflight
+    if: needs.preflight.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Bootstrap CDK
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          npm run bootstrap --workspace @sop/infra -- "aws://$ACCOUNT_ID/$AWS_REGION"
+      - name: Deploy platform
+        run: npm run deploy --workspace @sop/infra -- --require-approval never --outputs-file outputs.json
+      - name: Create optional demo user
+        if: ${{ vars.DEMO_USER_EMAIL != '' }}
+        env:
+          DEMO_USER_EMAIL: ${{ vars.DEMO_USER_EMAIL }}
+        run: |
+          USER_POOL_ID=$(jq -r '.SecurityOperationsPlatformStack.UserPoolId' infra/cdk/outputs.json)
+          npm run user:create -- --user-pool-id "$USER_POOL_ID" --email "$DEMO_USER_EMAIL" --region "$AWS_REGION"
+      - name: Smoke test deployment
+        run: |
+          FRONTEND_URL=$(jq -r '.SecurityOperationsPlatformStack.FrontendUrl' infra/cdk/outputs.json)
+          HEALTH_URL=$(jq -r '.SecurityOperationsPlatformStack.HealthUrl' infra/cdk/outputs.json)
+          curl --fail --retry 6 --retry-delay 10 "$FRONTEND_URL"
+          curl --fail --retry 6 --retry-delay 10 "$HEALTH_URL" | jq -e '.status == "ok"'
+          STATUS=$(curl -s -o /tmp/unauthorized.json -w '%{http_code}' "$FRONTEND_URL/api/devices")
+          test "$STATUS" = "401" -o "$STATUS" = "403"
+          {
+            echo "### Deployment"
+            echo "- Frontend: $FRONTEND_URL"
+            echo "- Health: $HEALTH_URL"
+            echo "- Unauthenticated device request: HTTP $STATUS"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cdk-outputs
+          path: infra/cdk/outputs.json

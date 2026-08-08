@@ -1,10 +1,16 @@
 node_modules/
 dist/
+.vitest/
+.coverage/
+.cdk.staging/
+cdk.out/
 .env
 .env.local
+frontend/public/config.json
 .DS_Store
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.tsbuildinfo
 .vite/

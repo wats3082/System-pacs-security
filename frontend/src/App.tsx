@@ -1,93 +1,189 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { PasswordChallenge, UserSession } from './auth';
+import { AuthClient } from './auth';
+import { ApiClient } from './api';
+import type { RuntimeConfig } from './config';
+import { DashboardPage } from './pages/DashboardPage';
+import { DevicesPage } from './pages/DevicesPage';
+import { EventsPage } from './pages/EventsPage';
+import { VideosPage } from './pages/VideosPage';
 import './App.css';
 
-type Tab = 'summary' | 'users-roles' | 'access-events' | 'devices';
+type Page = 'dashboard' | 'events' | 'devices' | 'videos';
 
-const NAV: { id: Tab; label: string }[] = [
-  { id: 'summary', label: 'Summary' },
-  { id: 'users-roles', label: 'Users & Roles' },
-  { id: 'access-events', label: 'Access Events' },
-  { id: 'devices', label: 'Devices' },
+const pages: Array<{ id: Page; label: string; eyebrow: string }> = [
+  { id: 'dashboard', label: 'Operations', eyebrow: 'KPI' },
+  { id: 'events', label: 'Access audit', eyebrow: 'EV' },
+  { id: 'devices', label: 'Device fleet', eyebrow: 'DV' },
+  { id: 'videos', label: 'Video library', eyebrow: 'VM' },
 ];
 
-export default function App() {
-  const [active, setActive] = useState<Tab>('summary');
+export default function App({ config }: { config: RuntimeConfig }) {
+  const auth = useMemo(() => new AuthClient(config), [config]);
+  const api = useMemo(() => new ApiClient(config, auth), [config, auth]);
+  const [session, setSession] = useState<UserSession | null>(null);
+  const [challenge, setChallenge] = useState<PasswordChallenge | null>(null);
+  const [active, setActive] = useState<Page>('dashboard');
+  const [booting, setBooting] = useState(true);
+  const [authError, setAuthError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    auth.restore()
+      .then(setSession)
+      .catch((error: unknown) => {
+        auth.signOut();
+        setAuthError(errorMessage(error));
+      })
+      .finally(() => setBooting(false));
+  }, [auth]);
+
+  const signIn = async (form: FormData) => {
+    setSubmitting(true);
+    setAuthError('');
+    try {
+      const result = await auth.signIn(
+        String(form.get('email')),
+        String(form.get('password')),
+      );
+      if (result.kind === 'newPassword') setChallenge(result.challenge);
+      else setSession(result.session);
+    } catch (error) {
+      setAuthError(errorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const completePassword = async (form: FormData) => {
+    if (!challenge) return;
+    setSubmitting(true);
+    setAuthError('');
+    try {
+      setSession(await auth.completeNewPassword(challenge, String(form.get('password'))));
+      setChallenge(null);
+    } catch (error) {
+      setAuthError(errorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (booting) return <FullPageState title="Restoring secure session" />;
+  if (!session) {
+    return (
+      <SignIn
+        challenge={challenge}
+        error={authError}
+        submitting={submitting}
+        onSignIn={signIn}
+        onCompletePassword={completePassword}
+      />
+    );
+  }
 
   return (
-    <div className="shell">
-      <header className="top-bar">
-        <div>
-          <p className="eyebrow">PACS Security</p>
-          <h1>Physical access security control plane</h1>
-          <p className="tagline">Policy-driven access workflows with serverless AWS foundations.</p>
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <span className="brand-mark">S</span>
+          <div><strong>Sentinel Ops</strong><small>Unified control plane</small></div>
         </div>
-      </header>
-
-      <div className="body">
-        <aside className="sidebar">
-          {NAV.map((item) => (
+        <nav aria-label="Primary navigation">
+          {pages.map((page) => (
             <button
-              key={item.id}
-              className={`nav-btn${active === item.id ? ' active' : ''}`}
-              onClick={() => setActive(item.id)}
+              key={page.id}
+              className={active === page.id ? 'nav-item active' : 'nav-item'}
+              onClick={() => setActive(page.id)}
+              aria-current={active === page.id ? 'page' : undefined}
             >
-              <span className="nav-dot" />
-              {item.label}
+              <span>{page.eyebrow}</span>{page.label}
             </button>
           ))}
-        </aside>
-
-        <main className="content">
-          {active === 'summary' && (
-            <section className="page">
-              <h2>Product Summary</h2>
-              <p className="lead">
-                Securely manage users, roles, devices, and access activity with auditable events.
-              </p>
-              <div className="card-grid">
-                <article className="card"><h3>User Lifecycle</h3><p>Create and deactivate identities tied to role policies.</p></article>
-                <article className="card"><h3>Role Policies</h3><p>Map permissions to readers, schedules, and facilities.</p></article>
-                <article className="card"><h3>Access Audit</h3><p>Track grant/deny events with immutable event logs.</p></article>
-                <article className="card"><h3>Device Registry</h3><p>Manage readers, panels, and endpoint health status.</p></article>
-              </div>
-            </section>
-          )}
-
-          {active === 'users-roles' && (
-            <section className="page">
-              <h2>Users and Roles MVP</h2>
-              <div className="list-card">
-                <code>GET /api/users</code>
-                <code>POST /api/users</code>
-                <code>GET /api/roles</code>
-                <code>POST /api/roles</code>
-              </div>
-            </section>
-          )}
-
-          {active === 'access-events' && (
-            <section className="page">
-              <h2>Access Events MVP</h2>
-              <div className="list-card">
-                <code>GET /api/events?facilityId=HQ</code>
-                <code>POST /api/events</code>
-                <p>Event types: ACCESS_GRANTED, ACCESS_DENIED, DEVICE_OFFLINE.</p>
-              </div>
-            </section>
-          )}
-
-          {active === 'devices' && (
-            <section className="page">
-              <h2>Devices MVP</h2>
-              <div className="list-card">
-                <code>GET /api/devices</code>
-                <code>POST /api/devices</code>
-                <code>PATCH /api/devices/:id</code>
-              </div>
-            </section>
-          )}
-        </main>
-      </div>
+        </nav>
+        <div className="session-card">
+          <small>Signed in</small>
+          <strong title={session.email}>{session.email}</strong>
+          <button onClick={() => { auth.signOut(); setSession(null); }}>Sign out</button>
+        </div>
+      </aside>
+      <main>
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Security Operations Platform</p>
+            <h1>{pages.find((page) => page.id === active)?.label}</h1>
+          </div>
+          <span className="live-pill"><i /> Authenticated</span>
+        </header>
+        <div className="page-content">
+          {active === 'dashboard' && <DashboardPage api={api} />}
+          {active === 'events' && <EventsPage api={api} />}
+          {active === 'devices' && <DevicesPage api={api} />}
+          {active === 'videos' && <VideosPage api={api} />}
+        </div>
+      </main>
     </div>
   );
+}
+
+function SignIn({
+  challenge,
+  error,
+  submitting,
+  onSignIn,
+  onCompletePassword,
+}: {
+  challenge: PasswordChallenge | null;
+  error: string;
+  submitting: boolean;
+  onSignIn: (form: FormData) => Promise<void>;
+  onCompletePassword: (form: FormData) => Promise<void>;
+}) {
+  const submit = (action: (form: FormData) => Promise<void>) =>
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      void action(new FormData(event.currentTarget));
+    };
+  return (
+    <div className="auth-page">
+      <section className="auth-intro">
+        <p className="eyebrow">Unified physical security</p>
+        <h1>Operate access, devices, and video from one auditable workspace.</h1>
+        <p>Live operational metrics backed by persisted AWS data. No demo substitutions.</p>
+      </section>
+      <section className="auth-card">
+        <div className="brand compact"><span className="brand-mark">S</span><strong>Sentinel Ops</strong></div>
+        <h2>{challenge ? 'Set a permanent password' : 'Sign in to operations'}</h2>
+        <p>{challenge
+          ? 'Your administrator issued a temporary password. Replace it to continue.'
+          : 'Use the Cognito account created by your platform administrator.'}</p>
+        {error && <div className="alert error" role="alert">{error}</div>}
+        <form onSubmit={submit(challenge ? onCompletePassword : onSignIn)}>
+          {!challenge && (
+            <label>Email<input name="email" type="email" autoComplete="username" required /></label>
+          )}
+          <label>{challenge ? 'New password' : 'Password'}
+            <input
+              name="password"
+              type="password"
+              autoComplete={challenge ? 'new-password' : 'current-password'}
+              minLength={12}
+              required
+            />
+          </label>
+          <button className="primary" disabled={submitting}>
+            {submitting ? 'Working...' : challenge ? 'Set password and continue' : 'Sign in'}
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function FullPageState({ title }: { title: string }) {
+  return <div className="full-state"><span className="spinner" />{title}</div>;
+}
+
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'The operation failed';
 }

@@ -1,12 +1,14 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "outDir": "dist"
+    "noEmit": true,
+    "types": [
+      "node"
+    ]
   },
-  "include": ["bin", "lib"]
+  "include": [
+    "bin",
+    "lib",
+    "tests"
+  ]
 }
