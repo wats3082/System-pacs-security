@@ -2,16 +2,13 @@
 
 Sentinel Ops is the canonical unified Security Operations Platform for access control, device health, video metadata, and operational KPIs. It replaces the disconnected PACS, VMS, and KPI scaffolds with one npm workspace, one contract package, and one AWS CDK deployment path.
 
-## Deployment status
+## Live portfolio demo
 
-As of **2026-08-08**, this repository has no configured AWS credentials, GitHub Actions deployment role, repository variables, or deployment environment. A real `cdk deploy` attempt completed synthesis and then failed with `Unable to resolve AWS account to use`. The production stack therefore cannot be deployed from the current environment.
+**[Launch Sentinel Ops](https://wats3082.github.io/System-pacs-security/)**
 
-| Surface | Verified URL |
-| --- | --- |
-| Frontend | Not available - AWS deployment credentials are not configured |
-| API | Not available - AWS deployment credentials are not configured |
+The GitHub Pages build is an explicitly labeled, in-browser simulation. It provides realistic access decisions, risk signals, investigation dispositions, fleet health, video metadata, and KPIs without connecting to real readers, credentials, people, Cognito, DynamoDB, or AWS APIs. State resets when the page reloads. This separation lets interviewers exercise the operator workflow safely while the production architecture remains deployable through CDK.
 
-The machine has no `AWS_*` credential variables or `~/.aws` configuration, and the repository has no Actions secrets, variables, environments, or prior workflow runs to reuse. The exact required GitHub variables are `AWS_DEPLOY_ROLE_ARN` and `AWS_REGION`. The deploy workflow publishes both surfaces and smoke-tests them when those variables are present. No source repository should be archived until those live checks pass.
+The Pages workflow builds with the repository path as Vite's asset base, runs type-checks and tests before publishing, and requires no secrets.
 
 ## Architecture
 
@@ -50,7 +47,10 @@ CloudFront serves the private S3 application and proxies `/api/*` to API Gateway
 
 ### Access events
 
-- Validates every ingest request.
+- Evaluates credential status, subject roles, and optional UTC access schedules on the server; callers cannot submit a desired result to the policy endpoint.
+- Records the policy version, matched roles, schedule result, deterministic risk score, and explainable signals with every evaluated decision.
+- Supports denied-access case disposition with append-only, actor- and timestamp-attributed investigation notes.
+- Validates every request with shared Zod contracts.
 - Requires a caller-supplied UUID and uses a conditional DynamoDB write for idempotency.
 - Returns the existing record for the same UUID and payload, or `409 CONFLICT` for UUID reuse with different data.
 - Retrieves newest-first audit pages with opaque continuation tokens.
@@ -124,6 +124,29 @@ npm run user:create -- --user-pool-id <UserPoolId output> --email operator@examp
 
 Cognito generates a temporary password and sends it directly to the email address. The user must replace it during first sign-in. The deploy workflow can run this step idempotently when the non-secret repository variable `DEMO_USER_EMAIL` is set.
 
+## Security and threat model
+
+**Protected assets:** badge identifiers, policy evidence, access decisions, investigation records, device health, and operator identities.
+
+| Threat | Control |
+| --- | --- |
+| Client forges a grant | `/events/evaluate` derives the decision from validated credential, role, and schedule evidence |
+| Event replay or UUID substitution | Conditional writes and payload hashes make ingest idempotent and reject conflicting UUID reuse |
+| Investigator rewrites history | Dispositions append actor/timestamp entries; DynamoDB point-in-time recovery and API logs support reconstruction |
+| Cross-tenant reads or updates | Tenant keys constrain queries and conditional investigation updates |
+| Anonymous operational access | Cognito authorizer protects every operational route; only health/config are public |
+| Browser/API data leakage | Same-origin CloudFront proxy, no-store API responses, explicit CORS allowlist, TLS, and security headers |
+| Compromised function pivots | Domain Lambdas receive narrow table/action IAM grants |
+
+Trust boundaries are the browser, Cognito, API Gateway, Lambda policy/application code, and DynamoDB. The current policy input is supplied by the authenticated integration and is suitable for demonstrating decision engineering, not for production credential authority. A production PACS should source credential and policy facts from signed controller messages or authoritative identity/policy stores, add anti-passback and reader attestation, and enforce MFA plus Cognito groups for operators.
+
+## Demo flows
+
+1. Open **Policy decisions & investigations** and evaluate the prefilled active employee during the allowed window for a grant.
+2. Change the role to `contractor`, credential to `SUSPENDED`, or time outside `07:00-19:00 UTC` to produce explainable denial signals and a higher risk score.
+3. Add an investigation note and disposition. Expand **Audit history** to see immutable actor/time attribution.
+4. Use decision, facility, and reader filters; then inspect **Operations**, **Device fleet**, and **Video library** for correlated context.
+
 ## Local development and validation
 
 Prerequisites: Node.js 24 and npm 11.
@@ -160,12 +183,23 @@ The single stack creates and connects Cognito, API Gateway, six Lambda functions
 
 `.github/workflows/ci.yml` installs, audits production dependencies, typechecks, tests, builds every workspace, and synthesizes CDK. `.github/workflows/deploy.yml` deploys through GitHub OIDC, optionally creates the demo user, verifies the frontend and health endpoint, and confirms operational endpoints reject unauthenticated requests.
 
+`.github/workflows/pages.yml` publishes the static simulation on pushes to `main`. Repository Pages must use **GitHub Actions** as its build source. No deployment secret is required.
+
+## Design tradeoffs and interview talking points
+
+- **Decision integrity over CRUD breadth:** a dedicated policy endpoint computes decisions and preserves evidence rather than trusting a browser-supplied `GRANTED`.
+- **Explainability over opaque anomaly ML:** deterministic signals and risk weights are reviewable, testable, and appropriate for sparse demo data; mature deployments can version and calibrate this engine.
+- **Append-only case activity:** compact investigation history lives with the event for atomic updates and easy retrieval; at scale, use a separate case/activity table with conditional versioning and retention controls.
+- **One codebase, two honest modes:** AWS mode uses Cognito/Lambda/DynamoDB; Pages injects a typed in-memory adapter and unmistakable simulation banner.
+- **Operational resilience:** conditional idempotency, delayed-heartbeat protection, structured error envelopes, request IDs, least privilege, tracing, and explicit empty/loading/error states are first-class behavior.
+- **Accessible operator UX:** keyboard-visible focus, semantic alerts/status, labeled controls, responsive evidence grids, and reduced-motion handling support control-room and mobile use.
+
 ## MVP limitations
 
 - The deployment is single-tenant; `tenantId` defaults to `default` and can be changed with CDK context.
 - Video is metadata-only. Binary upload, playback, transcoding, and content analysis are not implemented.
 - KPI aggregates are computed on request from the selected DynamoDB indexes; high-volume deployments should add materialized time buckets.
 - Device heartbeats are API-driven; there is no IoT transport or automatic offline scheduler.
-- Cognito groups and granular role authorization are not yet implemented; authenticated users share the operational tenant.
+- Cognito groups and granular operator authorization are not yet implemented; authenticated users share the operational tenant. Subject access roles are policy inputs, not operator permissions.
 - MFA is not enabled in this MVP; the frontend currently supports SRP password authentication and first-login password replacement.
 - No live deployment is claimed until AWS credentials are supplied and the deploy workflow smoke tests pass.

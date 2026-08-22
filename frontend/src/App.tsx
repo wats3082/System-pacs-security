@@ -104,16 +104,25 @@ export default function App({ config }: { config: RuntimeConfig }) {
         <div className="session-card">
           <small>Signed in</small>
           <strong title={session.email}>{session.email}</strong>
-          <button onClick={() => { auth.signOut(); setSession(null); }}>Sign out</button>
+          <button onClick={() => {
+            if (config.demoMode) window.location.reload();
+            else { auth.signOut(); setSession(null); }
+          }}>{config.demoMode ? 'Reset demo' : 'Sign out'}</button>
         </div>
       </aside>
       <main>
+        {config.demoMode && (
+          <div className="demo-banner" role="status">
+            <strong>Public portfolio simulation</strong>
+            <span>Data stays in this browser session; no live readers, credentials, or backend are connected.</span>
+          </div>
+        )}
         <header className="topbar">
           <div>
             <p className="eyebrow">Security Operations Platform</p>
             <h1>{pages.find((page) => page.id === active)?.label}</h1>
           </div>
-          <span className="live-pill"><i /> Authenticated</span>
+          <span className="live-pill"><i /> {config.demoMode ? 'Simulation ready' : 'Authenticated'}</span>
         </header>
         <div className="page-content">
           {active === 'dashboard' && <DashboardPage api={api} />}

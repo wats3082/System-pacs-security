@@ -29,6 +29,8 @@ describe('events handler', () => {
     process.env.ALLOWED_ORIGINS = 'https://app.example.com';
     const service = {
       ingest: vi.fn(),
+      evaluate: vi.fn(),
+      investigate: vi.fn(),
       list: vi.fn(),
     };
     const handler = createEventsHandler(service, 'default');

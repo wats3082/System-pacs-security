@@ -1,6 +1,7 @@
 import type {
   AccessEvent,
   AccessEventCreate,
+  AccessDecisionRequest,
   AccessEventQuery,
   Device,
   DeviceCreate,
@@ -9,6 +10,7 @@ import type {
   DeviceUpdate,
   ErrorEnvelope,
   KpiSummary,
+  InvestigationUpdate,
   Page,
   VideoAsset,
   VideoCreate,
@@ -17,6 +19,7 @@ import type {
 } from '@sop/contracts';
 import type { AuthClient } from './auth';
 import type { RuntimeConfig } from './config';
+import { createDemoFetch } from './demo';
 
 export class ApiError extends Error {
   constructor(
@@ -41,6 +44,7 @@ export class ApiClient {
     private readonly fetcher: typeof fetch = fetch,
   ) {
     this.baseUrl = config.apiBaseUrl.replace(/\/$/, '');
+    if (config.demoMode) this.fetcher = createDemoFetch();
   }
 
   events(query: Partial<AccessEventQuery> = {}): Promise<Page<AccessEvent>> {
@@ -49,6 +53,17 @@ export class ApiClient {
 
   ingestEvent(input: AccessEventCreate): Promise<{ item: AccessEvent; created: boolean }> {
     return this.request('/events', { method: 'POST', body: input });
+  }
+
+  evaluateAccess(input: AccessDecisionRequest): Promise<{ item: AccessEvent; created: boolean }> {
+    return this.request('/events/evaluate', { method: 'POST', body: input });
+  }
+
+  investigateEvent(eventId: string, input: InvestigationUpdate): Promise<AccessEvent> {
+    return this.request(`/events/${encodeURIComponent(eventId)}/investigation`, {
+      method: 'PATCH',
+      body: input,
+    });
   }
 
   devices(query: Partial<DeviceQuery> = {}): Promise<Page<Device>> {

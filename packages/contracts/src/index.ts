@@ -16,6 +16,8 @@ export const metadataSchema = z.record(
 ).refine((value) => Object.keys(value).length <= 20, 'Metadata is limited to 20 fields');
 
 export const accessDecisions = ['GRANTED', 'DENIED'] as const;
+export const credentialStatuses = ['ACTIVE', 'SUSPENDED', 'EXPIRED'] as const;
+export const investigationStatuses = ['UNREVIEWED', 'INVESTIGATING', 'RESOLVED', 'FALSE_POSITIVE'] as const;
 export const deviceTypes = ['ACCESS_READER', 'CAMERA', 'SENSOR', 'CONTROLLER'] as const;
 export const deviceStatuses = ['ONLINE', 'OFFLINE', 'DEGRADED', 'MAINTENANCE'] as const;
 export const videoStatuses = ['QUEUED', 'RUNNING', 'COMPLETE', 'FAILED'] as const;
@@ -29,6 +31,30 @@ export const accessEventCreateSchema = z.strictObject({
   reason: z.string().trim().max(300).optional(),
   occurredAt: isoDateSchema,
   metadata: metadataSchema.optional(),
+});
+
+export const accessDecisionRequestSchema = z.strictObject({
+  eventId: z.uuid(),
+  deviceId: idSchema,
+  facilityId: idSchema,
+  subjectId: idSchema,
+  subjectRoles: z.array(idSchema).min(1).max(20),
+  credentialStatus: z.enum(credentialStatuses),
+  occurredAt: isoDateSchema,
+  policy: z.strictObject({
+    policyId: idSchema,
+    allowedRoles: z.array(idSchema).min(1).max(20),
+    scheduleUtc: z.strictObject({
+      startHour: z.number().int().min(0).max(23),
+      endHour: z.number().int().min(0).max(23),
+    }).optional(),
+  }),
+  metadata: metadataSchema.optional(),
+});
+
+export const investigationUpdateSchema = z.strictObject({
+  status: z.enum(investigationStatuses),
+  note: z.string().trim().min(3).max(500),
 });
 
 export const accessEventQuerySchema = z.strictObject({
@@ -111,6 +137,10 @@ export const kpiQuerySchema = z.strictObject({
 export type AccessEventCreate = z.infer<typeof accessEventCreateSchema>;
 export type AccessEventQuery = z.infer<typeof accessEventQuerySchema>;
 export type AccessDecision = typeof accessDecisions[number];
+export type AccessDecisionRequest = z.infer<typeof accessDecisionRequestSchema>;
+export type CredentialStatus = typeof credentialStatuses[number];
+export type InvestigationStatus = typeof investigationStatuses[number];
+export type InvestigationUpdate = z.infer<typeof investigationUpdateSchema>;
 export type DeviceCreate = z.infer<typeof deviceCreateSchema>;
 export type DeviceUpdate = z.infer<typeof deviceUpdateSchema>;
 export type DeviceHeartbeat = z.infer<typeof deviceHeartbeatSchema>;
@@ -126,6 +156,24 @@ export type KpiQuery = z.infer<typeof kpiQuerySchema>;
 export interface AccessEvent extends AccessEventCreate {
   actorId: string;
   ingestedAt: string;
+  evidence?: {
+    policyId: string;
+    credentialStatus: CredentialStatus;
+    matchedRoles: string[];
+    scheduleMatched: boolean;
+    evaluatedAt: string;
+  };
+  risk?: { score: number; signals: string[] };
+  investigation?: {
+    status: InvestigationStatus;
+    updatedAt: string;
+    history: Array<{
+      status: InvestigationStatus;
+      note: string;
+      actorId: string;
+      occurredAt: string;
+    }>;
+  };
 }
 
 export interface Device extends DeviceCreate {

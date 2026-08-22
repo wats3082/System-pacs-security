@@ -3,6 +3,7 @@ export interface RuntimeConfig {
   region: string;
   userPoolId: string;
   userPoolClientId: string;
+  demoMode?: boolean;
 }
 
 function isConfig(value: unknown): value is RuntimeConfig {
@@ -15,6 +16,15 @@ function isConfig(value: unknown): value is RuntimeConfig {
 export async function loadConfig(
   fetcher: typeof fetch = fetch,
 ): Promise<RuntimeConfig> {
+  if (import.meta.env.VITE_DEMO_MODE === 'true') {
+    return {
+      apiBaseUrl: '/api',
+      region: 'static-demo',
+      userPoolId: 'demo',
+      userPoolClientId: 'demo',
+      demoMode: true,
+    };
+  }
   const response = await fetcher('/api/config', {
     headers: { Accept: 'application/json' },
     cache: 'no-store',

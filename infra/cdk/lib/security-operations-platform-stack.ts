@@ -98,7 +98,12 @@ export class SecurityOperationsPlatformStack extends Stack {
       USER_POOL_CLIENT_ID: userPoolClient.userPoolClientId,
     });
 
-    this.grant(eventsFn, eventsTable, ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Query']);
+    this.grant(eventsFn, eventsTable, [
+      'dynamodb:GetItem',
+      'dynamodb:PutItem',
+      'dynamodb:UpdateItem',
+      'dynamodb:Query',
+    ]);
     this.grant(devicesFn, devicesTable, [
       'dynamodb:GetItem',
       'dynamodb:PutItem',
@@ -188,6 +193,10 @@ export class SecurityOperationsPlatformStack extends Stack {
     const events = apiRoot.addResource('events');
     events.addMethod('GET', new apigw.LambdaIntegration(eventsFn), secured);
     events.addMethod('POST', new apigw.LambdaIntegration(eventsFn), secured);
+    events.addResource('evaluate')
+      .addMethod('POST', new apigw.LambdaIntegration(eventsFn), secured);
+    events.addResource('{eventId}').addResource('investigation')
+      .addMethod('PATCH', new apigw.LambdaIntegration(eventsFn), secured);
 
     const devices = apiRoot.addResource('devices');
     devices.addMethod('GET', new apigw.LambdaIntegration(devicesFn), secured);

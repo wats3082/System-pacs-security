@@ -1,6 +1,7 @@
 import type {
   AccessEvent,
   AccessEventCreate,
+  AccessDecisionRequest,
   AccessEventQuery,
   Device,
   DeviceCreate,
@@ -12,6 +13,7 @@ import type {
   VideoCreate,
   VideoQuery,
   VideoStatusUpdate,
+  InvestigationStatus,
 } from '@sop/contracts';
 
 export interface AccessEventRecord extends AccessEvent {
@@ -37,6 +39,12 @@ export interface VideoRecord extends VideoAsset {
 export interface AccessEventStore {
   put(item: AccessEventRecord): Promise<boolean>;
   get(eventId: string): Promise<AccessEventRecord | undefined>;
+  updateInvestigation(
+    tenantId: string,
+    eventId: string,
+    status: InvestigationStatus,
+    entry: NonNullable<AccessEvent['investigation']>['history'][number],
+  ): Promise<AccessEventRecord | undefined>;
   list(tenantId: string, query: AccessEventQuery): Promise<Page<AccessEventRecord>>;
 }
 
@@ -80,6 +88,7 @@ export interface KpiStore {
 
 export type {
   AccessEventCreate,
+  AccessDecisionRequest,
   DeviceCreate,
   DeviceHeartbeat,
   DeviceUpdate,

@@ -32,4 +32,15 @@ describe('SecurityOperationsPlatformStack', () => {
       AuthorizerId: Match.anyValue(),
     });
   });
+
+  it('grants event investigation updates without broad table access', () => {
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([Match.objectLike({
+          Action: Match.arrayWith(['dynamodb:UpdateItem']),
+          Effect: 'Allow',
+        })]),
+      },
+    });
+  });
 });

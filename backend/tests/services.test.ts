@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
   AccessEventQuery,
+  InvestigationStatus,
   DeviceQuery,
   Page,
   VideoQuery,
@@ -32,6 +33,26 @@ class EventMemoryStore implements AccessEventStore {
 
   async get(eventId: string): Promise<AccessEventRecord | undefined> {
     return this.items.get(eventId);
+  }
+
+  async updateInvestigation(
+    tenantId: string,
+    eventId: string,
+    status: InvestigationStatus,
+    entry: NonNullable<AccessEventRecord['investigation']>['history'][number],
+  ): Promise<AccessEventRecord | undefined> {
+    const current = this.items.get(eventId);
+    if (!current || current.tenantId !== tenantId || !current.investigation) return undefined;
+    const next = {
+      ...current,
+      investigation: {
+        status,
+        updatedAt: entry.occurredAt,
+        history: [...current.investigation.history, entry],
+      },
+    };
+    this.items.set(eventId, next);
+    return next;
   }
 
   async list(_tenantId: string, _query: AccessEventQuery): Promise<Page<AccessEventRecord>> {
@@ -154,8 +175,46 @@ describe('AccessEventService', () => {
       ...input,
       occurredAt: '2026-08-08T13:59:00.000+02:00',
     });
+
     expect(store.items.get(input.eventId)?.timeKey)
       .toBe(`2026-08-08T11:59:00.000Z#${input.eventId}`);
+  });
+
+  it('evaluates policy evidence server-side and preserves investigation history', async () => {
+    const service = new AccessEventService(new EventMemoryStore(), () => now);
+    const result = await service.evaluate('default', 'operator-1', {
+      eventId: 'e1e98da8-140a-4ac3-898d-9f90fa98e6de',
+      deviceId: 'reader-1',
+      facilityId: 'hq',
+      subjectId: 'badge-7',
+      subjectRoles: ['contractor'],
+      credentialStatus: 'ACTIVE',
+      occurredAt: '2026-08-08T23:00:00.000Z',
+      policy: {
+        policyId: 'hq-business-hours',
+        allowedRoles: ['employee'],
+        scheduleUtc: { startHour: 7, endHour: 19 },
+      },
+    });
+    expect(result.item).toMatchObject({
+      decision: 'DENIED',
+      reason: 'ROLE_NOT_AUTHORIZED, OUTSIDE_ALLOWED_HOURS',
+      risk: { score: 70, signals: ['ROLE_NOT_AUTHORIZED', 'OUTSIDE_ALLOWED_HOURS'] },
+      evidence: { policyId: 'hq-business-hours', scheduleMatched: false },
+    });
+
+    const investigated = await service.investigate('default', 'analyst-2', result.item.eventId, {
+      status: 'RESOLVED',
+      note: 'Confirmed after-hours contractor attempt with site lead',
+    });
+    expect(investigated.investigation).toMatchObject({
+      status: 'RESOLVED',
+      history: [{
+        status: 'RESOLVED',
+        actorId: 'analyst-2',
+        occurredAt: now.toISOString(),
+      }],
+    });
   });
 });
 

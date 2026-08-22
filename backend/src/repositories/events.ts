@@ -3,10 +3,11 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
   type DynamoDBDocumentClient,
   type QueryCommandInput,
 } from '@aws-sdk/lib-dynamodb';
-import type { AccessEventQuery, Page } from '@sop/contracts';
+import type { AccessEvent, AccessEventQuery, InvestigationStatus, Page } from '@sop/contracts';
 import type { AccessEventRecord, AccessEventStore } from '../domain';
 import { decodeToken, encodeToken } from '../lib/pagination';
 
@@ -37,6 +38,39 @@ export class DynamoAccessEventStore implements AccessEventStore {
       ConsistentRead: true,
     }));
     return result.Item as AccessEventRecord | undefined;
+  }
+
+  async updateInvestigation(
+    tenantId: string,
+    eventId: string,
+    status: InvestigationStatus,
+    entry: NonNullable<AccessEvent['investigation']>['history'][number],
+  ): Promise<AccessEventRecord | undefined> {
+    try {
+      const result = await this.client.send(new UpdateCommand({
+        TableName: this.tableName,
+        Key: { eventId },
+        ConditionExpression: 'tenantId = :tenantId',
+        UpdateExpression: [
+          'SET investigation.#status = :status',
+          'investigation.updatedAt = :updatedAt',
+          'investigation.history = list_append(if_not_exists(investigation.history, :empty), :entry)',
+        ].join(', '),
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':tenantId': tenantId,
+          ':status': status,
+          ':updatedAt': entry.occurredAt,
+          ':empty': [],
+          ':entry': [entry],
+        },
+        ReturnValues: 'ALL_NEW',
+      }));
+      return result.Attributes as AccessEventRecord;
+    } catch (error) {
+      if (error instanceof ConditionalCheckFailedException) return undefined;
+      throw error;
+    }
   }
 
   async list(tenantId: string, query: AccessEventQuery): Promise<Page<AccessEventRecord>> {

@@ -31,23 +31,27 @@ function sessionInfo(session: CognitoUserSession): UserSession {
 }
 
 export class AuthClient {
-  private readonly pool: CognitoUserPool;
+  private readonly pool?: CognitoUserPool;
+  private readonly demoMode: boolean;
 
   constructor(config: RuntimeConfig) {
-    this.pool = new CognitoUserPool({
+    this.demoMode = config.demoMode === true;
+    if (!this.demoMode) this.pool = new CognitoUserPool({
       UserPoolId: config.userPoolId,
       ClientId: config.userPoolClientId,
     });
   }
 
   async restore(): Promise<UserSession | null> {
-    const user = this.pool.getCurrentUser();
+    if (this.demoMode) return demoSession();
+    const user = this.pool!.getCurrentUser();
     if (!user) return null;
     return sessionInfo(await this.session(user));
   }
 
   async signIn(email: string, password: string): Promise<SignInResult> {
-    const user = new CognitoUser({ Username: email, Pool: this.pool });
+    if (this.demoMode) return { kind: 'signedIn', session: demoSession() };
+    const user = new CognitoUser({ Username: email, Pool: this.pool! });
     const details: IAuthenticationDetailsData = { Username: email, Password: password };
     return new Promise((resolve, reject) => {
       user.authenticateUser(new AuthenticationDetails(details), {
@@ -85,13 +89,15 @@ export class AuthClient {
   }
 
   async token(): Promise<string> {
-    const user = this.pool.getCurrentUser();
+    if (this.demoMode) return 'static-demo-token';
+    const user = this.pool!.getCurrentUser();
     if (!user) throw new Error('Your session has ended. Sign in again.');
     return (await this.session(user)).getIdToken().getJwtToken();
   }
 
   signOut(): void {
-    this.pool.getCurrentUser()?.signOut();
+    if (this.demoMode) return;
+    this.pool!.getCurrentUser()?.signOut();
   }
 
   private session(user: CognitoUser): Promise<CognitoUserSession> {
@@ -103,4 +109,8 @@ export class AuthClient {
       });
     });
   }
+}
+
+function demoSession(): UserSession {
+  return { email: 'demo.operator@sentinel.local', expiresAt: Date.now() + 3_600_000 };
 }

@@ -108,6 +108,18 @@ nav { display: grid; gap: 8px; margin-top: 40px; }
 }
 
 .app-shell > main { min-width: 0; }
+.demo-banner {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 9px 20px;
+  color: #fde9bc;
+  font-size: .72rem;
+  text-align: center;
+  background: #35250d;
+  border-bottom: 1px solid #77551f;
+}
+.demo-banner span { color: #dec793; }
 .topbar {
   min-height: 92px;
   display: flex;
@@ -159,6 +171,10 @@ button {
   border-radius: 8px;
 }
 button:hover:not(:disabled) { border-color: var(--amber); }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+  outline: 3px solid rgba(96, 165, 250, .65);
+  outline-offset: 2px;
+}
 button:disabled { cursor: not-allowed; opacity: .55; }
 button.primary {
   color: #1a1308;
@@ -227,6 +243,7 @@ button.primary {
   font-weight: 650;
 }
 .form-grid label.wide { grid-column: 1 / -1; }
+.form-help { grid-column: 1 / -1; color: var(--muted); font-size: .68rem; line-height: 1.45; }
 .form-grid button { align-self: end; min-height: 39px; }
 input, select {
   min-width: 0;
@@ -273,6 +290,24 @@ input:focus, select:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rg
 .badge.green { color: #9ff2d0; background: rgba(56, 211, 159, .08); border-color: rgba(56, 211, 159, .25); }
 .badge.red { color: #fecdd3; background: rgba(255, 100, 120, .08); border-color: rgba(255, 100, 120, .25); }
 .load-more { margin-top: 12px; }
+
+.case-list { display: grid; gap: 10px; }
+.case-card { padding: 13px; background: #0a101b; border: 1px solid #1c2839; border-radius: 10px; }
+.case-summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.case-summary strong, .case-summary small { display: block; }
+.case-summary strong { font-size: .8rem; }
+.case-summary small, .case-summary time { color: var(--muted); font-size: .67rem; }
+.evidence-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.evidence-grid span { min-width: 0; color: #cbd5e1; font-size: .7rem; overflow-wrap: anywhere; }
+.evidence-grid small { display: block; margin-bottom: 3px; color: var(--muted); font-size: .59rem; text-transform: uppercase; letter-spacing: .06em; }
+.signals { margin: 10px 0 0; color: var(--red); font-size: .67rem; }
+.investigation-form { display: grid; grid-template-columns: .8fr 1.5fr auto; gap: 7px; margin-top: 12px; }
+.investigation-form input, .investigation-form select, .investigation-form button { padding: 7px; font-size: .68rem; }
+.case-card details { margin-top: 11px; color: var(--muted); font-size: .68rem; }
+.case-card summary { cursor: pointer; color: #cbd5e1; }
+.case-card ol { margin: 8px 0 0; padding-left: 22px; }
+.case-card li { margin: 6px 0; line-height: 1.45; }
+.case-card li time { display: block; font-size: .61rem; }
 
 .device-grid, .video-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .device-card { padding: 13px; background: #0a101b; border: 1px solid #1d293a; border-radius: 10px; }
@@ -336,10 +371,13 @@ input:focus, select:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rg
   .session-card button { width: auto; }
   .topbar { min-height: 74px; }
   .live-pill { display: none; }
+  .demo-banner { display: grid; gap: 2px; }
   .page-content { padding-top: 22px; }
   .dashboard-grid, .device-grid, .video-grid { grid-template-columns: 1fr; }
   .record { grid-template-columns: auto 1fr; }
   .record time { grid-column: 2; }
+  .evidence-grid { grid-template-columns: repeat(2, 1fr); }
+  .investigation-form { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 520px) {
@@ -349,4 +387,11 @@ input:focus, select:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rg
   .page-heading > button { flex: 0 0 auto; }
   .status-form { grid-template-columns: 1fr; }
   .auth-page { padding: 18px; }
+  .case-summary { grid-template-columns: auto 1fr; }
+  .case-summary time { grid-column: 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+  * { scroll-behavior: auto !important; }
 }

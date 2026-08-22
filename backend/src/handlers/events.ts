@@ -1,13 +1,16 @@
 import type { APIGatewayProxyHandler } from 'aws-lambda';
 import {
   accessEventCreateSchema,
+  accessDecisionRequestSchema,
   accessEventQuerySchema,
+  investigationUpdateSchema,
 } from '@sop/contracts';
 import { requiredEnv } from '../lib/env';
 import {
   actorId,
   methodNotAllowed,
   parseBody,
+  pathParameter,
   query,
   withJsonHandler,
 } from '../lib/http';
@@ -16,10 +19,28 @@ import { DynamoAccessEventStore } from '../repositories/events';
 import { AccessEventService } from '../services/events';
 
 export function createEventsHandler(
-  service: Pick<AccessEventService, 'ingest' | 'list'>,
+  service: Pick<AccessEventService, 'ingest' | 'evaluate' | 'investigate' | 'list'>,
   tenantId: string,
 ): APIGatewayProxyHandler {
   return withJsonHandler(async (event) => {
+    if (event.httpMethod === 'POST' && event.path.endsWith('/evaluate')) {
+      const result = await service.evaluate(
+        tenantId,
+        actorId(event),
+        accessDecisionRequestSchema.parse(parseBody(event)),
+      );
+      return { statusCode: result.created ? 201 : 200, body: result };
+    }
+    if (event.httpMethod === 'PATCH' && event.path.endsWith('/investigation')) {
+      return {
+        body: await service.investigate(
+          tenantId,
+          actorId(event),
+          pathParameter(event, 'eventId'),
+          investigationUpdateSchema.parse(parseBody(event)),
+        ),
+      };
+    }
     if (event.httpMethod === 'POST') {
       const result = await service.ingest(
         tenantId,
